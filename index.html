@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ECO MAX — Calculadora de Consumo</title>
+<link rel="icon" href="logo.png" type="image/png">
+<style>
+:root{
+  --verde-principal: #26806a;
+  --amarillo-acento: #FBBF05;
+  --blanco: #FFFFFF;
+  --gris-transparente: rgba(255,255,255,0.06);
+  --texto-claro: #eefae5;
+  --rojo: #ff4c4c;
+}
+*{box-sizing:border-box}
+body{font-family:Arial, Helvetica, sans-serif;background:linear-gradient(180deg,var(--verde-principal),#1f6b56);color:var(--blanco);margin:0;padding:20px;}
+.container{max-width:980px;margin:0 auto;background:var(--gris-transparente);padding:18px;border-radius:10px;border:2px solid rgba(255,255,255,0.08)}
+.header{display:flex;gap:12px;align-items:center}
+.logo{width:80px}
+h1{margin:0;font-size:1.6rem}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.card{background:transparent;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);flex:1;min-width:240px}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+thead th{font-size:0.9rem;text-align:left;padding:8px;border-bottom:1px dashed rgba(255,255,255,0.06)}
+tbody td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)}
+input,select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.06);color:var(--blanco);padding:6px;border-radius:6px;margin:4px 0}
+input::placeholder{color:rgba(255,255,255,0.9)}
+button{background:var(--amarillo-acento);color:#144d3b;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
+.small{font-size:0.85rem;color:var(--texto-claro)}
+.right{text-align:right}
+.result{background:rgba(0,0,0,0.12);padding:12px;border-radius:8px;margin-top:12px}
+.kpi{display:flex;gap:12px;flex-wrap:wrap}
+.kpi .item{flex:1;min-width:180px;background:rgba(255,255,255,0.03);padding:10px;border-radius:8px}
+.footer{margin-top:12px;font-size:0.85rem;color:var(--texto-claro)}
+select option {color: var(--blanco); background: var(--verde-principal);}
+@media(max-width:720px){.header{flex-direction:column;align-items:flex-start}.controls{flex-direction:column}}
+/* Vista móvil mejorada */
+/* Vista móvil optimizada */
+@media (max-width: 720px) {
+  body {
+    padding: 10px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: center;
+  }
+
+  .logo {
+    width: 60px;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: 1.2rem;
+    line-height: 1.4;
+  }
+
+  .controls {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .card {
+    width: 100%;
+    min-width: unset;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+  }
+
+  .card input,
+  .card select,
+  .card button {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1rem;
+    margin-top: 6px;
+  }
+
+  button {
+    padding: 12px;
+    font-weight: bold;
+  }
+
+  table {
+    font-size: 0.9rem;
+  }
+
+  thead {
+    display: none; /* ocultar cabecera en móviles */
+  }
+
+  tbody tr {
+    display: block;
+    margin-bottom: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.03);
+  }
+
+  tbody td {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+  }
+
+  tbody td::before {
+    content: attr(data-label);
+    font-weight: bold;
+    text-align: left;
+  }
+}
+
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <img src="logo.png" alt="ECO MAX" class="logo"/>
+    <div>
+      <h1>ECO MAX — Calculadora de consumo eléctrico</h1>
+      <div class="small">Calcula kWh y costo de la boleta según tus dispositivos y horas de uso. Estimación de ahorro con ECO MAX (25%).</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="card">
+      <div class="small">Precio de la energía</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <label class="small">$ / kWh <input id="precioKwh" type="number" step="0.01" value="50.00"/></label>
+        <label class="small">Periodo (días) <input id="diasPeriodo" type="number" value="30" min="1"/></label>
+      </div>
+      <div style="margin-top:10px;" class="small">Opciones rápidas</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button onclick="cargarEjemploCasa()">Cargar casa ejemplo</button>
+        <button onclick="limpiarFilas()">Limpiar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="small">Agregar dispositivo</div>
+      <div style="display:flex;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap">
+        <select id="preset" title="Selecciona un dispositivo predefinido">
+          <option value="">— seleccionar —</option>
+          <option value="60">Lampara LED 10W (x1) — 10 W</option>
+          <option value="1000">Aire acondicionado 1kW — 1000 W</option>
+          <option value="2000">Aire acondicionado 2kW — 2000 W</option>
+          <option value="1500">Calefactor 1.5kW — 1500 W</option>
+          <option value="800">TV — 800 W</option>
+          <option value="300">PC de escritorio — 300 W</option>
+          <option value="50">Cargador celular — 10 W</option>
+          <option value="1200">Termotanque eléctrico — 1200 W</option>
+        </select>
+        <input id="nombre" placeholder="Nombre (ej: Lámpara Living)" style="flex:1" title="Nombre descriptivo del dispositivo"/>
+        <input id="potencia" type="number" placeholder="Potencia en watts del dispositivo" style="width:220px" title="Potencia nominal en watts que consume el dispositivo"/>
+        <input id="cantidad" type="number" value="1" min="1" style="width:100px" title="Cantidad de dispositivos iguales"/>
+        <input id="horas" type="number" value="1" min="0" style="width:220px" placeholder="Horas de uso por día" title="Número de horas que este dispositivo está encendido cada día"/>
+        <button onclick="agregarFila()" title="Agregar este dispositivo a la tabla">Agregar</button>
+      </div>
+      <div class="small" style="margin-top:8px">Horas es tiempo por día que cada unidad está conectada.</div>
+    </div>
+  </div>
+
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th>Dispositivo</th>
+        <th>Potencia (W)</th>
+        <th>Cantidad</th>
+        <th>Horas/día</th>
+        <th>kWh/día</th>
+        <th>kWh/periodo</th>
+        <th>Costo ARS</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="cuerpoTabla">
+      <!-- filas generadas -->
+    </tbody>
+  </table>
+
+  <div style="display:flex;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap">
+    <button onclick="calcularTodo()">Calcular</button>
+    <button onclick="exportarCSV()">Exportar CSV</button>
+    <button onclick="copiarResumen()">Copiar resumen</button>
+  </div>
+
+  <div class="result">
+    <div class="kpi">
+      <div class="item">
+        <div class="small">Total kWh / día</div>
+        <div id="totalkWhDia" style="font-size:1.4rem">0 kWh</div>
+      </div>
+      <div class="item">
+        <div class="small">Total kWh / periodo</div>
+        <div id="totalkWhPeriodo" style="font-size:1.4rem">0 kWh</div>
+      </div>
+      <div class="item">
+        <div class="small">Costo total (ARS)</div>
+        <div id="costoTotal" style="font-size:1.4rem">$ 0,00</div>
+      </div>
+      <div class="item">
+        <div class="small">Ahorro estimado ECO MAX (25%)</div>
+        <div id="ahorroEco" style="font-size:1.4rem">$ 0,00</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Nota: los resultados son estimaciones. El ahorro se calcula como 25% del costo total. Ajusta <strong>$ / kWh</strong> para reflejar la tarifa real de tu distribuidora.</div>
+</div>
+  <div class="footer">
+    Resultados obtenidos según un estudio del CEARE, índices de precios al consumidor, y boletas oficiales de Edenor.
+  </div>
+
+<script>
+// Preset load
+const preset = document.getElementById('preset');
+preset.addEventListener('change', ()=>{ const val=preset.value; if(val){ document.getElementById('potencia').value = val; if(!document.getElementById('nombre').value) document.getElementById('nombre').value = 'Dispositivo'; } });
+
+function agregarFila(){
+  const nombre = document.getElementById('nombre').value || 'Dispositivo';
+  const pot = Number(document.getElementById('potencia').value) || 0;
+  const qty = Number(document.getElementById('cantidad').value) || 1;
+  const hrs = Number(document.getElementById('horas').value) || 0;
+  if(pot<=0 || hrs<=0){ alert('Ingrese potencia y horas mayores a 0.'); return; }
+  const tbody = document.getElementById('cuerpoTabla');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td contenteditable='true'>${escapeHtml(nombre)}</td>
+                  <td><input class='in-pot' type='number' value='${pot}' style='width:110px'/></td>
+                  <td><input class='in-qty' type='number' value='${qty}' min='1' style='width:70px'/></td>
+                  <td><input class='in-hrs' type='number' value='${hrs}' min='0' style='width:90px'/></td>
+                  <td class='col-kwh-dia'>0</td>
+                  <td class='col-kwh-per'>0</td>
+                  <td class='col-cost'>0</td>
+                  <td><button onclick='quitarFila(this)'>Eliminar</button></td>`;
+  tbody.appendChild(tr);
+  limpiarInputsAgregar();
+  calcularTodo();
+}
+
+function limpiarInputsAgregar(){ document.getElementById('nombre').value=''; document.getElementById('potencia').value=''; document.getElementById('cantidad').value=1; document.getElementById('horas').value=1; preset.value=''; }
+function limpiarFilas(){ document.getElementById('cuerpoTabla').innerHTML=''; calcularTodo(); }
+function quitarFila(btn){ btn.closest('tr').remove(); calcularTodo(); }
+
+function calcularTodo(){
+  const rows = Array.from(document.querySelectorAll('#cuerpoTabla tr'));
+  const precio = Number(document.getElementById('precioKwh').value) || 0;
+  const dias = Number(document.getElementById('diasPeriodo').value) || 30;
+  let totalkWhDia = 0;
+  let totalkWhPeriodo = 0;
+  let costoTotal = 0;
+
+  rows.forEach(r=>{
+    const pot = Number(r.querySelector('.in-pot').value) || 0; // W
+    const qty = Number(r.querySelector('.in-qty').value) || 1;
+    const hrs = Number(r.querySelector('.in-hrs').value) || 0;
+    const kwhDia = (pot * qty * hrs) / 1000; // kWh/day
+    const kwhPeriodo = kwhDia * dias;
+    const costo = kwhPeriodo * precio;
+    totalkWhDia += kwhDia;
+    totalkWhPeriodo += kwhPeriodo;
+    costoTotal += costo;
+    r.querySelector('.col-kwh-dia').textContent = formatNumber(kwhDia,3) + ' kWh';
+    r.querySelector('.col-kwh-per').textContent = formatNumber(kwhPeriodo,3) + ' kWh';
+    r.querySelector('.col-cost').textContent = '$ ' + formatNumber(costo,2);
+  });
+
+  document.getElementById('totalkWhDia').textContent = formatNumber(totalkWhDia,3) + ' kWh';
+  document.getElementById('totalkWhPeriodo').textContent = formatNumber(totalkWhPeriodo,3) + ' kWh';
+  document.getElementById('costoTotal').textContent = '$ ' + formatNumber(costoTotal,2);
+  const ahorro = costoTotal * 0.25; // 25%
+  document.getElementById('ahorroEco').textContent = '$ ' + formatNumber(ahorro,2);
+}
+
+function formatNumber(n,decimals){ return Number(n).toLocaleString('es-AR',{minimumFractionDigits:decimals,maximumFractionDigits:decimals}); }
+
+function exportarCSV(){
+  const rows = Array.from(document.querySelectorAll('#cuerpoTabla tr'));
+  if(rows.length===0){ alert('No hay dispositivos para exportar.'); return; }
+
+  const dias = Number(document.getElementById('diasPeriodo').value) || 30;
+  const precio = Number(document.getElementById('precioKwh').value) || 0;
+
+  const data = [
+    ["Dispositivo","Potencia (W)","Cantidad","Horas/día","kWh/día","kWh/periodo","Costo (ARS)"]
+  ];
+
+  rows.forEach(r=>{
+    const nombre = r.querySelector('td').textContent.trim();
+    const pot = Number(r.querySelector('.in-pot').value)||0;
+    const qty = Number(r.querySelector('.in-qty').value)||1;
+    const hrs = Number(r.querySelector('.in-hrs').value)||0;
+    const kwhDia = (pot*qty*hrs)/1000;
+    const kwhPer = kwhDia * dias;
+    const costo = kwhPer * precio;
+    data.push([nombre,pot,qty,hrs,kwhDia.toFixed(3),kwhPer.toFixed(3),costo.toFixed(2)]);
+  });
+
+  // Totales
+  data.push([]);
+  data.push(["Totales","","","",
+    document.getElementById('totalkWhDia').textContent,
+    document.getElementById('totalkWhPeriodo').textContent,
+    document.getElementById('costoTotal').textContent
+  ]);
+  data.push(["Ahorro estimado ECO MAX","","","","","",document.getElementById('ahorroEco').textContent]);
+
+  // Crear libro y hoja
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Consumo");
+
+  // Descargar archivo
+  XLSX.writeFile(wb,"consumo_ecomax.xlsx");
+}
+
+function copiarResumen(){ calcularTodo();
+  const totDia = document.getElementById('totalkWhDia').textContent;
+  const totPer = document.getElementById('totalkWhPeriodo').textContent;
+  const costo = document.getElementById('costoTotal').textContent;
+  const ahorro = document.getElementById('ahorroEco').textContent;
+  const texto = `Resumen ECO MAX:\nTotal por día: ${totDia}\nTotal periodo: ${totPer}\nCosto estimado: ${costo}\nAhorro ECO MAX (25%): ${ahorro}`;
+  navigator.clipboard?.writeText(texto).then(()=>alert('Resumen copiado al portapapeles.'))
+}
+
+function cargarEjemploCasa(){ limpiarFilas();
+  // ejemplo representativo
+  const ejemplos = [
+    ['Lampara LED',10,6,3],
+    ['TV',120,1,4],
+    ['PC',300,1,5],
+    ['Heladera',150,1,24],
+    ['Aire 2000W',2000,1,4]
+  ];
+  ejemplos.forEach(e=>{ document.getElementById('nombre').value=e[0]; document.getElementById('potencia').value=e[1]; document.getElementById('cantidad').value=e[2]; document.getElementById('horas').value=e[3]; agregarFila(); });
+}
+
+function escapeHtml(text){ return text.replace(/[&<>\"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+// eventos: recalcular cuando se modifican entradas dentro de la tabla
+document.addEventListener('input', function(e){ if(e.target.matches('.in-pot, .in-qty, .in-hrs')) calcularTodo(); });
+
+// cargar ejemplo inicial
+window.addEventListener('load', ()=>{ cargarEjemploCasa(); calcularTodo(); });
+</script>
+</body>
+</html>
+
